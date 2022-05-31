@@ -1,0 +1,9 @@
+{% extends 'django_app/base.html' %}
+
+{% block title %}Информация о транзакции {{ tx.Id }}{% endblock %}
+
+{% block content %}
+    <h2>Информация о транзакции</h2>
+    <h3>ID - {{ tx.Id }}</h3>
+    <h3>Описание - {{ tx.Description }}</h3>
+{% endblock %}

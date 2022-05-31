@@ -1,0 +1,19 @@
+{% extends 'django_app/base.html' %}
+
+{% block title %}Все транзакции{% endblock %}
+
+{% block content %}
+<form action="/sendtx/" method="get">
+    <button>Отправить транзакцию</button>
+</form>
+    <h3>Все транзакции</h3>
+    {% if txs %}
+        <ol>
+            {% for tx in txs %}
+            <li><a href="{{ tx.get_url }}">{{ tx.Id }}</a></li>
+            {% endfor %}
+        </ol>
+    {% else %}
+        <h4>Транзакций не найдено</h4>
+    {% endif %}
+{% endblock %}
