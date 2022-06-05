@@ -1,12 +1,19 @@
 from django.shortcuts import render, get_object_or_404
 from .models import Transaction, TransactionData, RpcException
 import binascii
-from django.db.models import QuerySet
-import base58
-import jsonrpcclient
 import requests
+import jsonrpcclient
 from pycoin.cmds.tx import script_for_address_or_opcodes
 from pycoin.symbols.btc import create_bitcoinish_network
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+
+
+session = requests.Session()
+retry = Retry(connect=3, backoff_factor=.5)
+adapter = HTTPAdapter(max_retries=retry)
+session.mount('http://', adapter)
+session.mount('https://', adapter)
 
 
 def show_all_txs(request):
@@ -46,7 +53,7 @@ def get_network_data():
 
 
 def get_last_utxo():
-    utxo = requests.get(TransactionData.UTXO_ADDRESS)
+    utxo = session.get(TransactionData.UTXO_ADDRESS, verify=False)
     last_txid = utxo.json()[-1]['transactionId']
     last_index = utxo.json()[-1]['outputIndex']
     last_script = utxo.json()[-1]['scriptPubKey']
@@ -58,7 +65,7 @@ def get_last_utxo():
 
 
 def get_new_address():
-    response = requests.post(TransactionData.RPC_URL, json=requests.request('getnewaddress'))
+    response = session.post(url=TransactionData.RPC_URL, json=jsonrpcclient.request('getnewaddress'))
     result = response.json()
     if not result['error']:
         return result['result']
@@ -86,15 +93,16 @@ def send(request):
         f"{address}": 1
     }
 
-    response = requests.post(TransactionData.RPC_URL, json=request(
-        f'createrawtransaction "[{create_transaction_dct}]" "[{create_transaction_address}]"'))
+    response = session.post(TransactionData.RPC_URL, json=request(
+        f'createrawtransaction "[{create_transaction_dct}]" "[{create_transaction_address}]"'), verify=False)
 
-    response = requests.post(TransactionData.RPC_URL, json=request(
-        f'signrawtransactionwithkey "{tx.as_hex()}" "[\"{TransactionData.PRIV_KEY}\"]"'))
+    response = session.post(TransactionData.RPC_URL, json=request(
+        f'signrawtransactionwithkey "{tx.as_hex()}" "[\"{TransactionData.PRIV_KEY}\"]"'), verify=False)
 
-    response = requests.post(TransactionData.RPC_URL, json=request(
+    response = session.post(TransactionData.RPC_URL, json=request(
         f'sendrawtransaction "{tx.as_hex()}"'
-    ))
+    ), verify=False)
     newtx = response.json()['result']
-    to_save = Transaction(Id=newtx)
+    to_save = Transaction()
+    to_save.Id = newtx
     to_save.save()
